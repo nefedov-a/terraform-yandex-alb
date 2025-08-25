@@ -102,3 +102,21 @@ variable "external_ipv4_address" {
   type        = string
   default     = null
 }
+
+#
+# target groups
+#
+variable "create_target_group" {
+  description = "If true, target group will be created"
+  type        = bool
+  default     = false
+}
+
+variable "targets" {
+  description = "Application load balancer targets"
+  type = list(object({
+    address   = string
+    subnet_id = string
+  }))
+  default = []
+}

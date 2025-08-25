@@ -193,9 +193,18 @@ resource "yandex_alb_virtual_host" "main" {
   route {
     name = "default"
     http_route {
+      http_match {
+        path {
+          exact  = try(each.value["http_match"]["path"]["exact"], null)
+          prefix = try(each.value["http_match"]["path"]["prefix"], null)
+          regex  = try(each.value["http_match"]["path"]["regex"], null)
+        }
+        http_method = try(each.value["http_match"]["http_method"], [])
+      }
+
       http_route_action {
         backend_group_id = yandex_alb_backend_group.http[each.key].id
-        timeout          = "3s"
+        timeout          = try(each.value["http_route_action"]["timeout"], "3s")
       }
     }
 
@@ -230,7 +239,9 @@ resource "yandex_alb_backend_group" "http" {
     port             = each.value["backend"]["port"]
     weight           = each.value["backend"]["weight"]
     http2            = each.value["backend"]["http2"]
-    target_group_ids = each.value["backend"]["target_group_ids"]
+    target_group_ids = try(each.value["backend"]["target_group_ids"], [
+      yandex_alb_target_group.main[0].id
+    ])
 
     # TODO: temporary hardcoded
     load_balancing_config {
@@ -249,9 +260,10 @@ resource "yandex_alb_backend_group" "http" {
       healthcheck_port        = lookup(each.value["backend"]["health_check"], "healthcheck_port", null)
 
       http_healthcheck {
-        # host = ""
-        path  = each.value["backend"]["health_check"]["http"]["path"]
-        http2 = each.value["type"] == "http2" ? true : false
+        path              = each.value["backend"]["health_check"]["http"]["path"]
+        host              = try(each.value["backend"]["health_check"]["http"]["host"], null)
+        http2             = each.value["type"] == "http2" ? true : false
+        expected_statuses = try(each.value["backend"]["health_check"]["expected_statuses"], null)
       }
     }
 
@@ -274,7 +286,9 @@ resource "yandex_alb_backend_group" "streams" {
     name             = each.value["backend"]["name"]
     port             = each.value["backend"]["port"]
     weight           = each.value["backend"]["weight"]
-    target_group_ids = each.value["backend"]["target_group_ids"]
+    target_group_ids = try(each.value["backend"]["target_group_ids"], [
+      yandex_alb_target_group.main[0].id
+    ])
 
     # TODO: temporary unsupported
     # load_balancing_config {}
@@ -296,6 +310,22 @@ resource "yandex_alb_backend_group" "streams" {
 
     # TODO: temporary unsupported
     # tls {}
+  }
+}
+
+resource "yandex_alb_target_group" "main" {
+  count = var.create_target_group ? 1 : 0
+
+  name      = var.name
+  folder_id = var.folder_id
+  labels    = var.labels
+
+  dynamic "target" {
+    for_each = var.targets
+    content {
+      subnet_id  = target.value.subnet_id
+      ip_address = target.value.address
+    }
   }
 }
 

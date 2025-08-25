@@ -18,4 +18,6 @@ module "wrapper" {
   region_id                   = try(each.value.region_id, var.defaults.region_id, null)
   security_group_ids          = try(each.value.security_group_ids, var.defaults.security_group_ids, [])
   subnets                     = try(each.value.subnets, var.defaults.subnets, {})
+  create_target_group         = try(each.value.create_target_group, var.defaults.create_target_group, false)
+  targets                     = try(each.value.targets, var.defaults.targets, [])
 }
